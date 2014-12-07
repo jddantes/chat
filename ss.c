@@ -18,11 +18,14 @@
 #define BROADCAST_OTHERS 2
 #define BROADCAST_ALL 3
 
+typedef int bool;
+
 int listener;
 fd_set master, read_fds;
 int fdmax = 0;
 char ip_list[200][INET6_ADDRSTRLEN] = {};
 char user_list[200][50] = {};
+bool ol_list[200] = {};
 
 void msend(int sockfd, const void * buf, size_t len, int flags){
 	if(send(sockfd, buf, len, flags) == -1){
@@ -73,7 +76,7 @@ void broadcastAll(char * data){
 	int len = strlen(data);
 	int j;
 	for(j = 0; j<=fdmax; j++){
-		if (FD_ISSET(j, &master) && j!=listener) {
+		if (FD_ISSET(j, &master) && j!=listener && ol_list[j]) {
 			msend(j, data, len, 0);
 		}
 	}
@@ -83,7 +86,7 @@ void broadcastOthers(char * data, int me){
 	int len = strlen(data);
 	int j;
 	for(j = 0; j<=fdmax; j++){
-		if(FD_ISSET(j, &master) && j!=me && j!=listener){
+		if(FD_ISSET(j, &master) && j!=me && j!=listener && ol_list[j]){
 			msend(j, data, len, 0);
 		}
 	}
@@ -93,7 +96,7 @@ void broadcastOne(char * data, char * user){
 	int len = strlen(data);
 	int j;
 	for(j = 0; j<=fdmax; j++){
-		if(FD_ISSET(j, &master) && j!=listener){
+		if(FD_ISSET(j, &master) && j!=listener && ol_list[j]){
 			if(user_list[j][0] && !strcmp(user, user_list[j])){
 				msend(j, data, len, 0);
 			}
@@ -104,7 +107,8 @@ void broadcastOne(char * data, char * user){
 void pollOnline(char * ret){
 	int j;
 	for(j = 0; j<=fdmax; j++){
-		if (FD_ISSET(j, &master) && j!=listener) {
+		if (FD_ISSET(j, &master) && j!=listener && ol_list[j]) {
+			//printf("Polled %d %s\n", j, user_list[j]);
 			strapp(ret, " [", user_list[j], "]", NULL);
 		}
 	}
@@ -187,6 +191,7 @@ void createAcct(char * user, char *pass){
 	fclose(fp);
 }
 
+int currfd; // For setting user upon [JOINED] 
 int handle_data(char * data, char * ret){
 	/*
 		Data structured as: [head] tail
@@ -206,9 +211,10 @@ int handle_data(char * data, char * ret){
 		offset += getNext(data+offset, pass);
 		int login = verifyLogin(user, pass);
 		if(login) {
-			strcpy(ret, "[LOGIN_CHK1] [You have logged in]\n");	
+			strcpy(ret, "[LOGIN_CHK_1] [You have logged in]\n");	
+			printf("server: %s logged in\n", user);
 		} else {
-			strcpy(ret, "[LOGIN_CHK0] [Incorrect username/password]\n");
+			strcpy(ret, "[LOGIN_CHK_0] [Incorrect username/password]\n");
 		}
 		return BROADCAST_SELF;
 	} else if(!strcmp(head, "CREATE_ACCT")) {
@@ -235,8 +241,21 @@ int handle_data(char * data, char * ret){
 		offset += getNext(data+offset, user);
 		offset += getNext(data+offset, ts);
 		strjoin(ret, "[JOINED] [", user, "] [", ts, "]\n", NULL);
+		strcpy(user_list[currfd], user);
+		ol_list[currfd] = 1;
+		//printf("Setting user %d to %s\n", currfd, user);
 		return BROADCAST_OTHERS;
-	} else if(!strcmp(head, "MSG")){
+	} else if(!strcmp(head, "LEAVE")){
+		char user[200];
+		char ts[50];
+		offset += getNext(data+offset, user);
+		offset += getNext(data+offset, ts);
+		strjoin(ret, "[LEFT] [", user, "] [", ts, "]\n", NULL);
+		user_list[currfd][0] = 0;
+		ol_list[currfd] = 0;
+		return BROADCAST_OTHERS;
+	
+	 } else if(!strcmp(head, "MSG")){
 		char user[200];
 		char ts[50];
 		char msg[200];
@@ -331,9 +350,11 @@ int main(){
 						fdmax = max(fdmax, newfd);
 						printf("server: %s connected on socket %d\n", inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr *)&remoteaddr), remoteIP, INET6_ADDRSTRLEN), newfd);
 						strcpy(ip_list[newfd], remoteIP);
-						char tempusr[] = "user0";
+						user_list[newfd][0] = 0;
+						ol_list[newfd] = 0;
+						/*char tempusr[] = "user0";
 						tempusr[4] += newfd;
-						strcpy(user_list[newfd], tempusr);
+						strcpy(user_list[newfd], tempusr);*/
 					}
 					
 					
@@ -355,10 +376,12 @@ int main(){
 					} else {
 						// broadcast here
 						char ret[800];
+						currfd = i;
 						int bm = handle_data(buf, ret);
 						if(bm == BROADCAST_SELF){
 							msend(i, ret, strlen(ret), 0);
 						} else if(bm == BROADCAST_OTHERS){
+							
 							broadcastOthers(ret, i);	
 						} else if(bm == BROADCAST_ALL){
 							broadcastAll(ret);
