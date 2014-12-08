@@ -186,6 +186,15 @@ void readData(char * data){
 		printf("[%s] %s has left chat.\n", timestamp, user);
 	} else if(!strcmp(head, "SHUTDOWN")){
 		printf("Server is shutting down. Please log out.\n");
+	} else if(!strcmp(head, "PMR")){
+		char user[200];
+		char timestamp[50];
+		char msg[200];
+		offset += getNext(offset+data, user);
+		offset += getNext(offset+data, timestamp);
+		offset += getNext(offset+data, msg);
+		printf("[%s] [PM] %s: %s\n", timestamp, user, msg);
+		
 	}
 }
 
@@ -194,6 +203,48 @@ volatile sig_atomic_t got_int = 0;
 void sigint_handler(int sig){
 	got_int = 1;
 }
+
+char * parsePM(char * raw, char * ret, char * from){
+	int i;
+	char timestamp[50];
+	getTime(timestamp, sizeof(timestamp));
+	char user[200] = {};
+	char msg[200] = {};
+	int index = 0;
+	int len = strlen(raw);
+	for(i = 4; i<len; i++){
+		if(raw[i] == ' ') continue;
+		else break;
+	}
+	for(i; i<len; i++){
+		if(raw[i] == ' '){
+			user[index] = 0;
+			index = 0;
+			i+=1;
+			break;
+		} else {
+			user[index] = raw[i];
+			index++;
+		}
+	}
+	
+	for(i; i<len; i++){
+		if(raw[i] == ' ') continue;
+		else break;
+	}
+	for(i; i<=len; i++){
+		if(!raw[i]){
+			msg[index] = 0;
+			index = 0;
+			break;
+		} else {
+			msg[index] = raw[i];
+			index++;
+		}
+	}	
+	return strjoin(ret, "[PM] [", user, "] [", from, "] [", timestamp, "] [", msg, "]\n", NULL); 
+}
+
 
 
 int main(int argc, char * argv[]){
@@ -325,6 +376,10 @@ int main(int argc, char * argv[]){
 				
 					if(!strcasecmp(input, "/whosonline")){
 						msend(sockfd, "[OL]\n");
+					} else if(!strncasecmp(input, "/pm", 3) &&strlen(input) >= 7){
+						parsePM(input, buff, user);
+						//printf("Got pm\n%s", buff);
+						msend(sockfd, buff);
 					} else {
 						getTime(timestamp, sizeof timestamp);
 						strjoin(buff, "[MSG] [", user, "] [", timestamp, "] [", input, "]\n", NULL);
