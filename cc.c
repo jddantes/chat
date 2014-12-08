@@ -139,7 +139,9 @@ void readData(char * data){
 		offset += getNext(offset+data, user);
 		offset += getNext(offset+data, timestamp);
 		printf("[%s] %s has left chat.\n", timestamp, user);
-	}	
+	} else if(!strcmp(head, "SHUTDOWN")){
+		printf("Server is shutting down. Please log out.\n");
+	}
 }
 
 volatile sig_atomic_t got_int = 0;
@@ -270,7 +272,7 @@ int main(int argc, char * argv[]){
 						strjoin(buff, "[LEAVE] [", user, "] [", timestamp, "]\n");
 						msend(sockfd, buff);
 						printf("\nExiting chat...\n");
-						close(sockfd);
+						close(sockfd); 
 						exit(0);
 					}
 				
@@ -328,6 +330,7 @@ int main(int argc, char * argv[]){
 		if(!strlen(pass1)){
 			system("clear");
 			printf("Password can't be blank.\n");
+			goto password_start;
 		}
 		printf("Verify password: ");
 		mgets(pass2, 200);
