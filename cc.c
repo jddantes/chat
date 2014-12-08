@@ -9,8 +9,53 @@
 #include <time.h>
 #include <signal.h>
 #include <errno.h>
+#include <termios.h>
 
 char PORT[30] = {};
+
+/*
+	Credits to cplusplus.com for getch() and hide(), used for showing asterisks
+*/
+
+int getch(){
+	int ch;
+	struct termios t_old, t_new;
+	tcgetattr(STDIN_FILENO, &t_old);
+	t_new = t_old;
+	t_new.c_lflag &= ~(ICANON | ECHO);
+	tcsetattr(STDIN_FILENO, TCSANOW, &t_new);
+	ch = getchar();
+	tcsetattr(STDIN_FILENO, TCSANOW, &t_old);
+	return ch;
+}	
+
+char * hide(char * ret){
+	const char BACKSPACE = 127;
+	const char RETURN = 10;
+	
+	char * buff = ret;
+	int len = 0;
+	
+	unsigned char ch = 0;
+	while((ch=getch())!=RETURN){
+		if(ch == BACKSPACE){
+			if(len!=0){
+				printf("\b \b");
+				buff[len-1] = 0;
+				len--;
+			}
+		} else {
+			buff[len] = ch;
+			len++;
+			printf("*");
+		}
+
+	} printf("\n");
+	buff[len] = 0;
+	
+	return buff;
+}
+
 
 int getNext(char * data, char * ret){
 	/*
@@ -221,7 +266,8 @@ int main(int argc, char * argv[]){
 			goto login_start;
 		} 
 		printf("Enter password: ");
-		mgets(pass, sizeof pass);
+		//mgets(pass, sizeof pass);
+		hide(pass);
 		strjoin(buff, "[LOGIN] [", user, "] [", pass, "]\n", NULL);
 		msend(sockfd, buff);
 		//printf("Client sends '%s'\n", buff);
@@ -326,14 +372,16 @@ int main(int argc, char * argv[]){
 		char pass2[200];
 		password_start:
 		printf("Enter password: ");
-		mgets(pass1, 200);
+		//mgets(pass1, 200);
+		hide(pass1);
 		if(!strlen(pass1)){
 			system("clear");
 			printf("Password can't be blank.\n");
 			goto password_start;
 		}
 		printf("Verify password: ");
-		mgets(pass2, 200);
+		//mgets(pass2, 200);
+		hide(pass2);
 		if(strcmp(pass1, pass2)){
 			system("clear");
 			printf("Passwords don't match.\n");
