@@ -361,7 +361,7 @@ int main(int argc, char * argv[]){
 			
 				char timestamp[50];
 				getTime(timestamp, sizeof timestamp);
-				strjoin(buff, "[JOIN] [", user, "] [", timestamp, "]\n");
+				strjoin(buff, "[JOIN] [", user, "] [", timestamp, "]\n", NULL);
 				msend(sockfd, buff);
 				while(mgets(input, 142)!=NULL){
 					if(got_int){
