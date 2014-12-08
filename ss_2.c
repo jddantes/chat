@@ -306,7 +306,7 @@ int handle_data(char * data, char * ret){
 		offset += getNext(data+offset, user);
 		offset += getNext(data+offset, ts);
 		offset += getNext(data+offset, msg);
-		strjoin(ret, "[PMR] [", user, "] [", ts, "] [", msg, "]\n");
+		strjoin(ret, "[PMR] [", user, "] [", ts, "] [", msg, "]\n", NULL);
 		return BROADCAST_ONE;
 	}
 	

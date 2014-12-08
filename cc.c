@@ -366,7 +366,7 @@ int main(int argc, char * argv[]){
 				while(mgets(input, 142)!=NULL){
 					if(got_int){
 						getTime(timestamp, sizeof timestamp);
-						strjoin(buff, "[LEAVE] [", user, "] [", timestamp, "]\n");
+						strjoin(buff, "[LEAVE] [", user, "] [", timestamp, "]\n", NULL);
 						msend(sockfd, buff);
 						printf("\nExiting chat...\n");
 						close(sockfd); 
